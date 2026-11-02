@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#111416">
+<title>Giusto · Drop phrase quiz</title>
+<style>
+  :root {
+    --bg: #111416; --card: #1b2025; --card2: #232a31; --line: #2f373f;
+    --text: #f0f1f3; --muted: #afb5bd; --accent: #e7a3b0; --focus: #f5ce83;
+    --ok: #7fd4a0; --okbg: #17352a; --bad: #f19a9a; --badbg: #3d1f22;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 560px; margin: 0 auto; padding: 20px 16px 48px; }
+  header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 16px; }
+  header b { font-size: 15px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+  header span { color: var(--muted); font-size: 14px; }
+  h1 { font-size: 24px; margin: 0 0 16px; }
+  button, input { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+  .levels { display: grid; gap: 10px; }
+  .level { display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%;
+    text-align: left; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  .level:hover:not(:disabled) { border-color: var(--accent); }
+  .level:disabled { cursor: not-allowed; opacity: .55; }
+  .level strong { display: block; font-size: 18px; }
+  .level small { color: var(--muted); font-size: 14px; }
+  .badge { font-size: 13px; padding: 3px 9px; border-radius: 99px; background: var(--card2); color: var(--muted); white-space: nowrap; }
+  .badge.pass { background: var(--okbg); color: var(--ok); }
+  details { margin-top: 24px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 4px 16px; }
+  summary { cursor: pointer; padding: 10px 0; color: var(--muted); }
+  details ul { padding-left: 18px; margin: 0 0 12px; }
+  details li { margin: 0 0 10px; }
+  details li b { color: var(--accent); font-weight: 600; }
+  .bar { height: 6px; background: var(--card2); border-radius: 99px; overflow: hidden; margin-bottom: 18px; }
+  .bar i { display: block; height: 100%; background: var(--accent); transition: width .2s; }
+  .q { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+  .q .label { color: var(--muted); font-size: 14px; margin-bottom: 6px; }
+  .q .dish { font-size: 20px; font-weight: 600; }
+  .q .phrase { font-size: 18px; }
+  .blank { display: inline-block; min-width: 4.5em; border-bottom: 2px solid var(--accent); color: var(--accent); text-align: center; }
+  .choices { display: grid; gap: 8px; }
+  .choice { text-align: left; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: flex; gap: 10px; }
+  .choice:hover:not(:disabled) { border-color: var(--accent); }
+  .choice kbd { color: var(--muted); font: inherit; font-size: 14px; min-width: 1em; }
+  .choice:disabled { cursor: default; }
+  .choice.ok { background: var(--okbg); border-color: var(--ok); }
+  .choice.bad { background: var(--badbg); border-color: var(--bad); }
+  .slots { display: grid; gap: 8px; }
+  .slot { width: 100%; background: var(--card2); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .slot::placeholder { color: #868d96; }
+  .slot.ok { background: var(--okbg); border-color: var(--ok); }
+  .slot.bad { background: var(--badbg); border-color: var(--bad); }
+  .feedback { margin: 14px 0; padding: 12px 14px; border-radius: 10px; background: var(--card2); }
+  .feedback .v { font-weight: 700; margin-bottom: 4px; }
+  .feedback .v.ok { color: var(--ok); } .feedback .v.bad { color: var(--bad); }
+  .feedback .ans { color: var(--muted); }
+  .feedback .ans + .ans { margin-top: 6px; }
+  .actions { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+  .btn { flex: 1; min-width: 140px; padding: 12px 16px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); }
+  .btn.primary { background: var(--accent); color: #2a1218; border-color: var(--accent); font-weight: 700; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .score { font-size: 44px; font-weight: 700; margin: 4px 0; }
+  .muted { color: var(--muted); }
+  .missed { padding-left: 18px; }
+  .missed li { margin-bottom: 8px; }
+  .link { background: none; border: 0; color: var(--muted); text-decoration: underline; padding: 0; }
+  @media (prefers-reduced-motion: reduce) { .bar i { transition: none; } }
+</style>
+</head>
+<body>
+<main id="app" aria-live="polite"><noscript><h1>Drop phrase quiz</h1><p>Open this file in Safari or Chrome to play.</p></noscript></main>
+<script>
+// Source: Giusto vault drop phrases (10/2 menu update) with the 10/29 menu replacements applied.
+// Each entry: dish name, opener + name as said at the table, and the components after "with".
+const DISHES = [
+  { dish: "Scup Crudo", open: "This is our", said: "scup crudo", parts: ["satsuma mandarin", "fennel", "calamansi vinegar"] },
+  { dish: "Potato Leek Suppli", open: "This is our", said: "potato leek suppli", parts: ["guanciale jam", "chive"] },
+  { dish: "Coppa di Testa Crostini", open: "Here is our", said: "coppa di testa crostini", parts: ["kale pesto", "burrata"] },
+  { dish: "Roasted Beets", open: "Here is our", said: "beet salad", parts: ["roasted and smoked beets", "blood orange", "whipped ricotta", "pine nuts", "mish mish"] },
+  { dish: "Blackbird Farm Beef Spiedini", open: "Here is our", said: "Blackbird Farm beef spiedini", parts: ["beet labneh", "pistachio", "pomegranate mostarda"] },
+  { dish: "The Scotch Meatball", open: "This is our", said: "scotch meatball", parts: ["tomato and salumi sauce"] },
+  { dish: "Ricotta Frittelle", open: "This is our", said: "ricotta frittelle", parts: ["parmesan", "truffle", "honey"] },
+  { dish: "Cappelletti a Fiore", open: "Here is our", said: "cappelletti a fiore", parts: ["Schartner Farms sweet potato", "black truffle", "hazelnut"] },
+  { dish: "Sunchoke Mezzaluna", open: "Here is our", said: "sunchoke mezzaluna", parts: ["Sicilian caper", "brown butter", "lemon"] },
+  { dish: "Bucatini", open: "Here is our", said: "bucatini", parts: ["scallops", "mussels", "chouriço", "parsnip"] },
+  { dish: "Rigatoni", open: "This is our", said: "rigatoni", parts: ["Hopkins Southdowns lamb sausage", "kabocha squash", "kale"] },
+  { dish: "Garganelli", open: "Here is our", said: "garganelli", parts: ["Wild Harmony Farm pork ragu", "juniper", "parm"] },
+  { dish: "Chicory Salad", open: "Here is our", said: "chicory salad", parts: ["local apple", "blue cheese", "smoked walnut"] },
+  { dish: "Calamari Salad", open: "Here is our", said: "calamari salad", parts: ["confit potatoes", "n'duja vinaigrette", "taggiasca olive"] },
+  { dish: "Wild Harmony Farm Pork Sausage", open: "Here is our", said: "Wild Harmony Farm pork sausage", parts: ["turnip", "maitake mushroom", "apple cider jus"] },
+  { dish: "Short Rib Stracotto", open: "This is our", said: "short rib", parts: ["Thai tomato salsa", "Asian pear", "kohlrabi", "herbs"], pre: "a " },
+  { dish: "Wild Harmony Farm Moroccan Spiced Chicken", open: "Here is our", said: "Wild Harmony Farm chicken", parts: ["Tunisian couscous", "Four Town Farm carrots", "pine nuts"] },
+  { dish: "Olive Oil Cake", open: "Here is our", said: "olive oil cake", parts: ["Meyer lemon gelato", "blood orange", "pistachio cream"] },
+  { dish: "Schartner Farms Sweet Potato Gelato", open: "Here's our", said: "sweet potato gelato", parts: ["Schartner Farms sweet potatoes", "Italian meringue", "brown sugar streusel"] },
+  { dish: "Chocolate Tahini Torta", open: "Here is our", said: "chocolate-tahini torta", parts: ["candied kumquat", "espresso mousse"] },
+  { dish: "Concord Grape Sorbetto", open: "Here is our", said: "Concord grape sorbet", parts: ["candied cashews"] },
+  { dish: "Vanilla Gelato", open: "This is our", said: "vanilla gelato", parts: ["sassafras and huckleberry compote"] },
+  { dish: "Milk Chocolate Gelato", open: "This is our", said: "milk chocolate gelato", parts: ["peanut butter fudge"] },
+  { dish: "Cornbread Budino", open: "This is our", said: "cornbread budino", parts: ["roasted peach", "caramel popcorn"] },
+];
+
+const LEVELS = [
+  { id: "easy", name: "Easy", desc: "Name the dish from its phrase" },
+  { id: "medium", name: "Medium", desc: "Fill in the missing component" },
+  { id: "hard", name: "Hard", desc: "Type every component" },
+];
+const PASS = 0.8;
+const STORE = "giusto-drop-quiz-v1";
+
+const listJoin = (items) => items.length < 2 ? items.join("")
+  : items.length === 2 ? `${items[0]} and ${items[1]}`
+  : `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
+const phraseOf = (d) => `${d.open} ${d.said} with ${d.pre || ""}${listJoin(d.parts)}`;
+const esc = (s) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const pick = (a, n) => shuffle(a).slice(0, n);
+
+const norm = (s) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+  .replace(/[^a-z0-9 ]+/g, " ").replace(/\b(the|a|an|and|with|our)\b/g, " ").replace(/s\b/g, "").replace(/\s+/g, " ").trim();
+function lev(a, b) {
+  const m = a.length, n = b.length, d = Array.from({ length: n + 1 }, (_, j) => j);
+  for (let i = 1; i <= m; i++) {
+    let prev = d[0]; d[0] = i;
+    for (let j = 1; j <= n; j++) { const t = d[j]; d[j] = Math.min(d[j] + 1, d[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1)); prev = t; }
+  }
+  return d[n];
+}
+const ALIASES = { "chouriço": ["chorizo"], "parm": ["parmesan"], "mish mish": ["mishmish"] };
+const near = (a, b) => a.length > 0 && lev(a, b) <= Math.max(1, Math.floor(b.length * 0.2));
+const close = (typed, part) => [part, ...(ALIASES[part] || [])].some((p) => near(norm(typed), norm(p)));
+
+// Grade typed slots against parts in any order; returns per-slot match and the parts not matched.
+function gradeSlots(typed, parts) {
+  const left = parts.slice();
+  const ok = typed.map((t) => { const i = left.findIndex((p) => close(t, p)); if (i < 0) return false; left.splice(i, 1); return true; });
+  return { ok, missing: left };
+}
+
+// Previews and sandboxed viewers can block localStorage; progress then lasts for the session only.
+let state = {};
+try { state = JSON.parse(localStorage.getItem(STORE) || "{}"); } catch {}
+const save = () => { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch {} };
+const unlocked = (i) => i === 0 || (state[LEVELS[i - 1].id] || 0) >= PASS;
+
+function buildQuestions(levelId, pool) {
+  return shuffle(pool).map((d) => {
+    if (levelId === "easy") {
+      const others = pick(DISHES.filter((x) => x !== d), 3).map((x) => x.dish);
+      return { d, kind: "mc", options: shuffle([d.dish, ...others]), answer: d.dish };
+    }
+    if (levelId === "medium") {
+      const idx = Math.floor(Math.random() * d.parts.length);
+      const answer = d.parts[idx];
+      const others = pick([...new Set(DISHES.filter((x) => x !== d).flatMap((x) => x.parts))].filter((p) => !d.parts.some((x) => norm(x) === norm(p))), 3);
+      return { d, kind: "mc", idx, options: shuffle([answer, ...others]), answer };
+    }
+    return { d, kind: "type" };
+  });
+}
+
+let run = null;
+const app = document.getElementById("app");
+const head = (right) => `<header><b>Giusto</b><span>${right}</span></header>`;
+
+function home() {
+  run = null;
+  app.innerHTML = `${head(`${DISHES.length} dishes`)}
+    <h1>Drop phrase quiz</h1>
+    <div class="levels">${LEVELS.map((l, i) => {
+      const best = state[l.id], open = unlocked(i);
+      const badge = best != null ? `<span class="badge ${best >= PASS ? "pass" : ""}">Best ${Math.round(best * 100)}%</span>`
+        : open ? "" : `<span class="badge">Pass ${LEVELS[i - 1].name} at 80%</span>`;
+      return `<button class="level" data-level="${i}" ${open ? "" : "disabled"}>
+        <span><strong>${i + 1}. ${l.name}</strong><small>${l.desc}</small></span>${badge}</button>`;
+    }).join("")}</div>
+    <details><summary>All phrases</summary><ul>${DISHES.map((d) =>
+      `<li><b>${esc(d.dish)}</b><br>${esc(phraseOf(d))}</li>`).join("")}</ul></details>
+    ${Object.keys(state).length ? `<p><button class="link" id="reset">Reset progress</button></p>` : ""}`;
+  app.querySelectorAll(".level").forEach((b) => b.onclick = () => start(+b.dataset.level, DISHES));
+  const r = document.getElementById("reset");
+  if (r) r.onclick = () => { if (confirm("Reset all progress?")) { for (const k in state) delete state[k]; save(); home(); } };
+  app.querySelector(".level:not(:disabled)")?.focus();
+}
+
+function start(levelIdx, pool) {
+  const level = LEVELS[levelIdx];
+  run = { levelIdx, level, qs: buildQuestions(level.id, pool), i: 0, right: 0, missed: [], answered: false, full: pool.length === DISHES.length };
+  question();
+}
+
+function question() {
+  const { level, qs, i } = run, q = qs[i], d = q.d;
+  run.answered = false;
+  let body;
+  if (level.id === "easy") {
+    body = `<div class="q"><div class="label">Which dish?</div>
+      <div class="phrase">${esc(d.open)} <span class="blank">?</span> with ${esc(d.pre || "")}${esc(listJoin(d.parts))}</div></div>`;
+  } else if (level.id === "medium") {
+    const parts = d.parts.map((p, j) => j === q.idx ? `<span class="blank">?</span>` : esc(p));
+    body = `<div class="q"><div class="label">${esc(d.dish)}</div>
+      <div class="phrase">${esc(d.open)} ${esc(d.said)} with ${esc(d.pre || "")}${listJoin(parts)}</div></div>`;
+  } else {
+    body = `<div class="q"><div class="label">${d.parts.length} component${d.parts.length > 1 ? "s" : ""}, any order</div>
+      <div class="dish">${esc(d.dish)}</div></div>
+      <form id="typed" class="slots" autocomplete="off">${d.parts.map((_, j) =>
+        `<input class="slot" aria-label="Component ${j + 1}" placeholder="Component ${j + 1}" autocapitalize="off" spellcheck="false">`).join("")}
+        <div class="actions"><button class="btn primary" type="submit">Check</button></div></form>`;
+  }
+  const choices = q.kind === "mc" ? `<div class="choices">${q.options.map((o, j) =>
+    `<button class="choice" data-o="${esc(o)}"><kbd>${j + 1}</kbd><span>${esc(o)}</span></button>`).join("")}</div>` : "";
+  app.innerHTML = `${head(`${level.name} · ${i + 1} / ${qs.length}`)}
+    <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="${qs.length}" aria-valuenow="${i}"><i style="width:${(i / qs.length) * 100}%"></i></div>
+    ${body}${choices}<div id="after"></div>
+    <p><button class="link" id="quit">Quit to levels</button></p>`;
+  document.getElementById("quit").onclick = home;
+  if (q.kind === "mc") {
+    app.querySelectorAll(".choice").forEach((b) => b.onclick = () => answerMc(b));
+    app.querySelector(".choice").focus();
+  } else {
+    const form = document.getElementById("typed");
+    form.onsubmit = (e) => { e.preventDefault(); answerTyped(form); };
+    form.querySelector(".slot").focus();
+  }
+}
+
+function answerMc(btn) {
+  if (run.answered) return;
+  const q = run.qs[run.i], ok = btn.dataset.o === q.answer;
+  app.querySelectorAll(".choice").forEach((b) => {
+    b.disabled = true;
+    if (b.dataset.o === q.answer) b.classList.add("ok"); else if (b === btn) b.classList.add("bad");
+  });
+  feedback(ok);
+}
+
+function answerTyped(form) {
+  if (run.answered) return;
+  const q = run.qs[run.i], inputs = [...form.querySelectorAll(".slot")];
+  const { ok, missing } = gradeSlots(inputs.map((x) => x.value), q.d.parts);
+  inputs.forEach((x, j) => { x.readOnly = true; x.classList.add(ok[j] ? "ok" : "bad"); });
+  form.querySelector(".actions").remove();
+  feedback(ok.every(Boolean), missing.length && !ok.every(Boolean) ? `Missed: ${missing.join(", ")}` : "");
+}
+
+function feedback(ok, extra = "") {
+  run.answered = true;
+  const q = run.qs[run.i];
+  if (ok) run.right++; else run.missed.push(q.d);
+  const last = run.i === run.qs.length - 1;
+  document.getElementById("after").innerHTML = `<div class="feedback">
+      <div class="v ${ok ? "ok" : "bad"}">${ok ? "Correct" : "Incorrect"}</div>
+      ${extra ? `<div class="ans">${esc(extra)}</div>` : ""}
+      <div class="ans">“${esc(phraseOf(q.d))}”</div></div>
+    <div class="actions"><button class="btn primary" id="next">${last ? "See results" : "Next"}</button></div>`;
+  const next = document.getElementById("next");
+  next.onclick = () => { if (last) results(); else { run.i++; question(); } };
+  next.focus();
+}
+
+function results() {
+  const { levelIdx, level, qs, right, missed, full } = run;
+  const pct = right / qs.length;
+  if (full) { state[level.id] = Math.max(state[level.id] || 0, pct); save(); }
+  const nextLevel = LEVELS[levelIdx + 1];
+  const canNext = nextLevel && unlocked(levelIdx + 1);
+  const note = !full ? "Missed-only round. Full rounds count toward unlocking."
+    : pct >= PASS ? (nextLevel ? `${nextLevel.name} unlocked.` : "All levels passed.")
+    : `Score 80% to unlock ${nextLevel ? nextLevel.name : "a pass"}.`;
+  app.innerHTML = `${head(level.name)}
+    <div class="q"><div class="label">Score</div><div class="score">${Math.round(pct * 100)}%</div>
+      <div class="muted">${right} / ${qs.length} · ${note}</div></div>
+    ${missed.length ? `<div class="q"><div class="label">Missed</div><ul class="missed">${missed.map((d) =>
+      `<li><b>${esc(d.dish)}</b><br><span class="muted">${esc(phraseOf(d))}</span></li>`).join("")}</ul></div>` : ""}
+    <div class="actions">
+      ${missed.length ? `<button class="btn" id="retry">Retry missed</button>` : ""}
+      ${canNext ? `<button class="btn primary" id="next">Start ${nextLevel.name}</button>` : `<button class="btn primary" id="again">New round</button>`}
+    </div>
+    <p><button class="link" id="home">Levels</button></p>`;
+  document.getElementById("home").onclick = home;
+  document.getElementById("retry")?.addEventListener("click", () => start(levelIdx, missed));
+  document.getElementById("next")?.addEventListener("click", () => start(levelIdx + 1, DISHES));
+  document.getElementById("again")?.addEventListener("click", () => start(levelIdx, DISHES));
+  (document.getElementById("next") || document.getElementById("again")).focus();
+}
+
+document.addEventListener("keydown", (e) => {
+  if (!run || run.answered || e.target.tagName === "INPUT") return;
+  const n = parseInt(e.key, 10);
+  const btns = app.querySelectorAll(".choice");
+  if (n >= 1 && n <= btns.length) btns[n - 1].click();
+});
+
+home();
+</script>
+</body>
+</html>
