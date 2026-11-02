@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#111416">
-<title>Giusto · Drop phrase quiz</title>
+<title>Giusto · Quiz</title>
 <style>
   :root {
     --bg: #111416; --card: #1b2025; --card2: #232a31; --line: #2f373f;
@@ -32,7 +32,8 @@
   .level small { color: var(--muted); font-size: 14px; }
   .badge { font-size: 13px; padding: 3px 9px; border-radius: 99px; background: var(--card2); color: var(--muted); white-space: nowrap; }
   .badge.pass { background: var(--okbg); color: var(--ok); }
-  details { margin-top: 24px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 4px 16px; }
+  h2 { font-size: 24px; margin: 28px 0 16px; }
+  details { margin-top: 12px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 4px 16px; }
   summary { cursor: pointer; padding: 10px 0; color: var(--muted); }
   details ul { padding-left: 18px; margin: 0 0 12px; }
   details li { margin: 0 0 10px; }
@@ -109,7 +110,44 @@ const LEVELS = [
   { id: "easy", name: "Easy", desc: "Name the dish from its phrase" },
   { id: "medium", name: "Medium", desc: "Fill in the missing component" },
   { id: "hard", name: "Hard", desc: "Type every component" },
+  { id: "food", name: "Ingredients", desc: "18 questions · prep and components", free: true },
+  { id: "allergens", name: "Allergens", desc: "9 questions · allergens and modifications", free: true },
 ];
+
+// New food questions, from the 10/29 menu descriptions PDF (pp. 1–3).
+// Each entry: [dish, question, answer, [wrong answers], explanation].
+const FOOD = [
+  ['Scup Crudo','Scup is also known as ____.','Porgy',['Fluke','Tuna','Branzino'],'Scup, or porgy, is a mild, delicate white fish served raw.'],
+  ['Scup Crudo','The vinaigrette combines calamansi vinegar, Sicilian olive oil and ____.','Colatura di alici',['Miso butter','Balsamic glaze','Harissa'],'Colatura di alici is Italian fish sauce. Satsuma mandarin and seasoned fennel accompany the fish.'],
+  ['Roasted Beets','Which three preparations appear in the beet dish?','Salt-roasted, cold-smoked and pickled',['Steamed, grilled and fried','Raw, braised and candied','Pureed, confit and dehydrated'],'Red and candy-stripe beets are salt-roasted; candy-stripe beets are then cold-smoked, and thin red-beet rounds are pickled.'],
+  ['Roasted Beets','Which cheese finishes the beets?','Whipped ricotta',['Burrata','Fontina','Great Hill blue cheese'],'Whipped ricotta, pine nuts and mish mish finish beets dressed with calamansi vinaigrette and blood orange.'],
+  ['Potato Leek Suppli','The potato-leek risotto is shaped around ____.','Fontina',['Burrata','Mozzarella','Pecorino'],'Potato-leek puree is folded into cooked risotto, chilled overnight and shaped around fontina cheese.'],
+  ['Potato Leek Suppli','What coats the suppli before frying?','Instant mashed potato',['Panko breadcrumbs','Cornmeal','Chickpea flour'],'The instant-potato coating surrounds the risotto. Guanciale jam and chive finish the dish.'],
+  ['Coppa di Testa Crostini','The housemade salame combines pig-head meat and ground pork with warming spices, garlic and ____.','Orange zest',['Preserved lemon','Fennel pollen','Black truffle'],'The seasoned meat is stuffed into large salame casings and cooked overnight for 12 hours.'],
+  ['Coppa di Testa Crostini','Which pesto accompanies the salame and burrata?','Pistachio-kale',['Basil-walnut','Hazelnut-parsley','Sunflower-arugula'],'The pesto contains kale, pistachios, Parmesan, pecorino, olive oil and a touch of serrano chili.'],
+  ['Sunchoke Mezzaluna','The sunchoke filling is thickened with ____.','Butter-and-flour roux',['Potato starch alone','Ricotta and egg','Polenta'],'Sunchoke puree is thickened with roux to fill the pasta. Sunchokes are tubers in the sunflower family.'],
+  ['Sunchoke Mezzaluna','Which combination anchors the sauce?','Brown butter, lemon and Sicilian capers',['Miso butter, truffle and hazelnuts','Tomato, guanciale and chive','Cream, orange and pistachios'],'The sauce also includes roasted sunchokes, sunflower seeds, Parmesan and parsley.'],
+  ['Cappelletti a Fiore','Which vegetables form the filling?','Roasted sweet potato and pumpkin',['Sunchoke and potato','Butternut squash and carrot','Beet and celery root'],'Schartner Farms sweet potatoes and a little pumpkin are roasted, pureed and thickened with roux.'],
+  ['Cappelletti a Fiore','What finishes the miso-and-black-truffle pasta?','Shaved Parmesan and toasted hazelnuts',['Pine nuts and ricotta','Pistachios and burrata','Sunflower seeds and pecorino'],'The sauce combines miso, black truffle, butter, Parmesan and lemon; shaved Parmesan and chopped toasted hazelnuts finish it.'],
+  ['Moroccan Spiced Chicken','How are the two chicken portions cooked?','Pan-seared half breast and braised half leg',['Both portions deep-fried','Roasted breast and grilled leg','Poached breast and smoked leg'],'Half a breast is pan-seared; half a leg is braised in a tomato-based vegetable stew with Tangier spice.'],
+  ['Moroccan Spiced Chicken','Tangier spice combines cinnamon, cumin, cardamom and ____.','Rose petals',['Saffron','Fennel pollen','Star anise'],'The chicken is served over hand-rolled Tunisian couscous with harissa-dressed carrots and preserved lemon, among other garnishes.'],
+  ['Sweet Potato Gelato','How are the sweet potatoes prepared for the base?','Roasted whole, then cooked with milk',['Boiled, then folded into yogurt','Raw, then blended with cream','Steamed, then mixed with egg custard'],'Whole roasting concentrates the sweet-potato flavor. Balanced starches keep the gelato creamy when frozen.'],
+  ['Sweet Potato Gelato','Which toppings evoke sweet potato casserole?','Italian meringue and brown-sugar streusel',['Whipped cream and candied cashews','Pistachio cream and citrus','Chocolate sauce and cookie crumbs'],'Italian meringue and brown-sugar streusel turn sweet potato casserole flavors into dessert.'],
+  ['Olive Oil Cake','Which gelato accompanies the current cake?','Meyer lemon',['Parmesan','Vanilla','Sweet potato'],'The current cake comes with Meyer lemon gelato, blood orange, mandarin and Sicilian pistachio cream.'],
+  ['Olive Oil Cake','The pistachio cream combines pureed pistachios with ____.','White chocolate',['Mascarpone','Dark chocolate','Tahini'],'The pistachio-white-chocolate cream has a custard-like mouthfeel; vanilla notes connect the dish’s components.']
+];
+const ALLERGENS = [
+  ['Scup Crudo','Which allergen is explicitly listed for Scup Crudo?','Finfish',['Dairy','Egg','Peanut'],'The source lists finfish. This is not a complete free-of list for other allergens.'],
+  ['Roasted Beets','Which listed allergens have documented removal options?','Dairy and tree nuts',['Gluten and egg','Soy and sesame','Finfish and shellfish'],'The source allows removing dairy and tree nuts. Kitchen confirmation and cross-contact handling still apply.'],
+  ['Potato Leek Suppli','What is the documented gluten concern?','Shared-fryer cross-contact',['Wheat-flour breading','Wheat risotto','Soy sauce in the filling'],'The coating is instant mashed potato, but the shared fryer creates gluten cross-contact. Dairy and allium are also listed.'],
+  ['Coppa di Testa Crostini','Which removal is explicitly documented?','Dairy can be removed',['Pistachios can be removed','Gluten can be removed','Every listed allergen can be removed'],'Page 2 says dairy can be removed but is not recommended; gluten cannot be modified. Pistachios appear in the pesto ingredients on page 1, but their removal is not specified.'],
+  ['Sunchoke Mezzaluna','Which two allergens are explicitly listed?','Gluten and dairy',['Egg and soy','Tree nuts and sesame','Finfish and shellfish'],'Page 2 lists “Gluten, Dairy (cannot be modified)” and describes a butter-and-flour roux. No egg status or gluten-removal preparation is specified; do not infer either.'],
+  ['Cappelletti a Fiore','Which listed allergens are nonremovable?','Gluten, dairy and egg',['Tree nuts and soy','Dairy and tree nuts only','Gluten and soy only'],'Gluten, dairy and egg cannot be removed. The memo lists tree nuts and soy as removable.'],
+  ['Moroccan Spiced Chicken','Which ingredient explains the documented gluten?','Durum-wheat couscous',['Pine nuts','Currants','Preserved lemon'],'The couscous contains durum wheat. The source permits gluten and pine-nut removal; ask the kitchen for the exact preparation.'],
+  ['Sweet Potato Gelato','The base is egg-free. Which component contains egg?','Italian meringue',['The roasted sweet potato','The milk','The base itself'],'The meringue contains egg and must be removed for the documented egg-removal modification. Dairy is nonremovable.'],
+  ['Olive Oil Cake','Which listed allergen can be removed?','Pistachios / tree nuts',['Dairy','Gluten','Egg'],'Pistachios can be removed. Dairy, gluten and egg are nonremovable in this version.']
+];
+const poolFor = (id) => id === "food" ? FOOD : id === "allergens" ? ALLERGENS : DISHES;
 const PASS = 0.8;
 const STORE = "giusto-drop-quiz-v1";
 
@@ -146,10 +184,11 @@ function gradeSlots(typed, parts) {
 let state = {};
 try { state = JSON.parse(localStorage.getItem(STORE) || "{}"); } catch {}
 const save = () => { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch {} };
-const unlocked = (i) => i === 0 || (state[LEVELS[i - 1].id] || 0) >= PASS;
+const unlocked = (i) => i === 0 || LEVELS[i].free || (state[LEVELS[i - 1].id] || 0) >= PASS;
 
 function buildQuestions(levelId, pool) {
   return shuffle(pool).map((d) => {
+    if (levelId === "food" || levelId === "allergens") return { fact: d, kind: "mc", options: shuffle([d[2], ...d[3]]), answer: d[2] };
     if (levelId === "easy") {
       const others = pick(DISHES.filter((x) => x !== d), 3).map((x) => x.dish);
       return { d, kind: "mc", options: shuffle([d.dish, ...others]), answer: d.dish };
@@ -170,19 +209,22 @@ const head = (right) => `<header><b>Giusto</b><span>${right}</span></header>`;
 
 function home() {
   run = null;
-  app.innerHTML = `${head(`${DISHES.length} dishes`)}
-    <h1>Drop phrase quiz</h1>
-    <div class="levels">${LEVELS.map((l, i) => {
-      const best = state[l.id], open = unlocked(i);
-      const badge = best != null ? `<span class="badge ${best >= PASS ? "pass" : ""}">Best ${Math.round(best * 100)}%</span>`
-        : open ? "" : `<span class="badge">Pass ${LEVELS[i - 1].name} at 80%</span>`;
-      return `<button class="level" data-level="${i}" ${open ? "" : "disabled"}>
-        <span><strong>${i + 1}. ${l.name}</strong><small>${l.desc}</small></span>${badge}</button>`;
-    }).join("")}</div>
+  const card = (l, i) => {
+    const best = state[l.id], open = unlocked(i);
+    const badge = best != null ? `<span class="badge ${best >= PASS ? "pass" : ""}">Best ${Math.round(best * 100)}%</span>`
+      : open ? "" : `<span class="badge">Pass ${LEVELS[i - 1].name} at 80%</span>`;
+    return `<button class="level" data-level="${i}" ${open ? "" : "disabled"}>
+        <span><strong>${l.free ? "" : `${i + 1}. `}${l.name}</strong><small>${l.desc}</small></span>${badge}</button>`;
+  };
+  app.innerHTML = `${head("")}
+    <h1>Drop phrases</h1>
+    <div class="levels">${LEVELS.slice(0, 3).map(card).join("")}</div>
     <details><summary>All phrases</summary><ul>${DISHES.map((d) =>
       `<li><b>${esc(d.dish)}</b><br>${esc(phraseOf(d))}</li>`).join("")}</ul></details>
+    <h2>New food</h2>
+    <div class="levels">${LEVELS.slice(3).map((l, i) => card(l, i + 3)).join("")}</div>
     ${Object.keys(state).length ? `<p><button class="link" id="reset">Reset progress</button></p>` : ""}`;
-  app.querySelectorAll(".level").forEach((b) => b.onclick = () => start(+b.dataset.level, DISHES));
+  app.querySelectorAll(".level").forEach((b) => b.onclick = () => start(+b.dataset.level, poolFor(LEVELS[+b.dataset.level].id)));
   const r = document.getElementById("reset");
   if (r) r.onclick = () => { if (confirm("Reset all progress?")) { for (const k in state) delete state[k]; save(); home(); } };
   app.querySelector(".level:not(:disabled)")?.focus();
@@ -190,7 +232,7 @@ function home() {
 
 function start(levelIdx, pool) {
   const level = LEVELS[levelIdx];
-  run = { levelIdx, level, qs: buildQuestions(level.id, pool), i: 0, right: 0, missed: [], answered: false, full: pool.length === DISHES.length };
+  run = { levelIdx, level, qs: buildQuestions(level.id, pool), i: 0, right: 0, missed: [], answered: false, full: pool.length === poolFor(level.id).length };
   question();
 }
 
@@ -198,7 +240,9 @@ function question() {
   const { level, qs, i } = run, q = qs[i], d = q.d;
   run.answered = false;
   let body;
-  if (level.id === "easy") {
+  if (q.fact) {
+    body = `<div class="q"><div class="label">${esc(q.fact[0])}</div><div class="phrase">${esc(q.fact[1])}</div></div>`;
+  } else if (level.id === "easy") {
     body = `<div class="q"><div class="label">Which dish?</div>
       <div class="phrase">${esc(d.open)} <span class="blank">?</span> with ${esc(d.pre || "")}${esc(listJoin(d.parts))}</div></div>`;
   } else if (level.id === "medium") {
@@ -217,6 +261,7 @@ function question() {
   app.innerHTML = `${head(`${level.name} · ${i + 1} / ${qs.length}`)}
     <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="${qs.length}" aria-valuenow="${i}"><i style="width:${(i / qs.length) * 100}%"></i></div>
     ${body}${choices}<div id="after"></div>
+    ${level.id === "allergens" ? `<p class="muted">Practice, not allergy clearance. Follow the kitchen’s allergy procedure.</p>` : ""}
     <p><button class="link" id="quit">Quit to levels</button></p>`;
   document.getElementById("quit").onclick = home;
   if (q.kind === "mc") {
@@ -251,12 +296,12 @@ function answerTyped(form) {
 function feedback(ok, extra = "") {
   run.answered = true;
   const q = run.qs[run.i];
-  if (ok) run.right++; else run.missed.push(q.d);
+  if (ok) run.right++; else run.missed.push(q.fact || q.d);
   const last = run.i === run.qs.length - 1;
   document.getElementById("after").innerHTML = `<div class="feedback">
       <div class="v ${ok ? "ok" : "bad"}">${ok ? "Correct" : "Incorrect"}</div>
       ${extra ? `<div class="ans">${esc(extra)}</div>` : ""}
-      <div class="ans">“${esc(phraseOf(q.d))}”</div></div>
+      <div class="ans">${q.fact ? esc(q.fact[4]) : `“${esc(phraseOf(q.d))}”`}</div></div>
     <div class="actions"><button class="btn primary" id="next">${last ? "See results" : "Next"}</button></div>`;
   const next = document.getElementById("next");
   next.onclick = () => { if (last) results(); else { run.i++; question(); } };
@@ -267,16 +312,18 @@ function results() {
   const { levelIdx, level, qs, right, missed, full } = run;
   const pct = right / qs.length;
   if (full) { state[level.id] = Math.max(state[level.id] || 0, pct); save(); }
-  const nextLevel = LEVELS[levelIdx + 1];
+  const nextLevel = level.free ? null : LEVELS[levelIdx + 1];
   const canNext = nextLevel && unlocked(levelIdx + 1);
   const note = !full ? "Missed-only round. Full rounds count toward unlocking."
+    : level.free ? ""
     : pct >= PASS ? (nextLevel ? `${nextLevel.name} unlocked.` : "All levels passed.")
     : `Score 80% to unlock ${nextLevel ? nextLevel.name : "a pass"}.`;
   app.innerHTML = `${head(level.name)}
     <div class="q"><div class="label">Score</div><div class="score">${Math.round(pct * 100)}%</div>
-      <div class="muted">${right} / ${qs.length} · ${note}</div></div>
-    ${missed.length ? `<div class="q"><div class="label">Missed</div><ul class="missed">${missed.map((d) =>
-      `<li><b>${esc(d.dish)}</b><br><span class="muted">${esc(phraseOf(d))}</span></li>`).join("")}</ul></div>` : ""}
+      <div class="muted">${right} / ${qs.length}${note ? ` · ${note}` : ""}</div></div>
+    ${missed.length ? `<div class="q"><div class="label">Missed</div><ul class="missed">${missed.map((d) => Array.isArray(d)
+      ? `<li><b>${esc(d[0])}</b> · ${esc(d[1])}<br><span class="muted">${esc(d[2])}. ${esc(d[4])}</span></li>`
+      : `<li><b>${esc(d.dish)}</b><br><span class="muted">${esc(phraseOf(d))}</span></li>`).join("")}</ul></div>` : ""}
     <div class="actions">
       ${missed.length ? `<button class="btn" id="retry">Retry missed</button>` : ""}
       ${canNext ? `<button class="btn primary" id="next">Start ${nextLevel.name}</button>` : `<button class="btn primary" id="again">New round</button>`}
@@ -285,7 +332,7 @@ function results() {
   document.getElementById("home").onclick = home;
   document.getElementById("retry")?.addEventListener("click", () => start(levelIdx, missed));
   document.getElementById("next")?.addEventListener("click", () => start(levelIdx + 1, DISHES));
-  document.getElementById("again")?.addEventListener("click", () => start(levelIdx, DISHES));
+  document.getElementById("again")?.addEventListener("click", () => start(levelIdx, poolFor(level.id)));
   (document.getElementById("next") || document.getElementById("again")).focus();
 }
 
