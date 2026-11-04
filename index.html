@@ -57,6 +57,7 @@
   .slot.ok { background: var(--okbg); border-color: var(--ok); }
   .slot.bad { background: var(--badbg); border-color: var(--bad); }
   .slot.half { background: var(--halfbg); border-color: var(--half); }
+  .typo { text-decoration: underline wavy var(--bad); text-decoration-thickness: 1.5px; text-underline-offset: 4px; }
   .feedback { margin: 14px 0; padding: 12px 14px; border-radius: 10px; background: var(--card2); }
   .feedback .v { font-weight: 700; margin-bottom: 4px; }
   .feedback .v.ok { color: var(--ok); } .feedback .v.bad { color: var(--bad); } .feedback .v.half { color: var(--half); }
@@ -82,7 +83,7 @@
 const DISHES = [
   { dish: "Scup Crudo", open: "This is our", said: "scup crudo", parts: ["satsuma mandarin", "fennel", "calamansi vinegar"] },
   { dish: "Potato Leek Suppli", open: "This is our", said: "potato leek suppli", parts: ["guanciale jam", "chive"] },
-  { dish: "Coppa di Testa Crostini", open: "Here is our", said: "coppa di testa crostini", parts: ["kale pesto", "burrata"] },
+  { dish: "Coppa di Testa Crostini", open: "Here is our", said: "coppa di testa crostini", parts: ["pistachio-kale pesto", "Narragansett Creamery burrata"] },
   { dish: "Roasted Beets", open: "Here is our", said: "beet salad", parts: ["roasted and smoked beets", "blood orange", "whipped ricotta", "pine nuts", "mish mish"] },
   { dish: "Blackbird Farm Beef Spiedini", open: "Here is our", said: "Blackbird Farm beef spiedini", parts: ["beet labneh", "pistachio", "pomegranate mostarda"] },
   { dish: "The Scotch Meatball", open: "This is our", said: "scotch meatball", parts: ["tomato and salumi sauce"] },
@@ -101,9 +102,8 @@ const DISHES = [
   { dish: "Schartner Farms Sweet Potato Gelato", open: "Here's our", said: "sweet potato gelato", parts: ["Schartner Farms sweet potatoes", "Italian meringue", "brown sugar streusel"] },
   { dish: "Chocolate Tahini Torta", open: "Here is our", said: "chocolate-tahini torta", parts: ["candied kumquat", "espresso mousse"] },
   { dish: "Concord Grape Sorbetto", open: "Here is our", said: "Concord grape sorbet", parts: ["candied cashews"] },
-  { dish: "Vanilla Gelato", open: "This is our", said: "vanilla gelato", parts: ["sassafras and huckleberry compote"] },
+  { dish: "Vanilla Gelato", open: "This is our", said: "vanilla gelato", parts: ["sassafras", "huckleberry compote"] },
   { dish: "Milk Chocolate Gelato", open: "This is our", said: "milk chocolate gelato", parts: ["peanut butter fudge"] },
-  { dish: "Cornbread Budino", open: "This is our", said: "cornbread budino", parts: ["roasted peach", "caramel popcorn"] },
 ];
 
 const LEVELS = [
@@ -159,8 +159,10 @@ const esc = (s) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">
 const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const pick = (a, n) => shuffle(a).slice(0, n);
 
-const norm = (s) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-  .replace(/[^a-z0-9 ]+/g, " ").replace(/\b(the|a|an|and|with|our)\b/g, " ").replace(/s\b/g, "").replace(/\s+/g, " ").trim();
+// Case, accents, apostrophes (n'duja = nduja), punctuation and filler words never count.
+const FILLER = new Set(["the", "a", "an", "and", "with", "our"]);
+const words = (s) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/['’]/g, "")
+  .split(/[^a-z0-9]+/).filter((w) => w && !FILLER.has(w));
 function lev(a, b) {
   const m = a.length, n = b.length, d = Array.from({ length: n + 1 }, (_, j) => j);
   for (let i = 1; i <= m; i++) {
@@ -169,25 +171,52 @@ function lev(a, b) {
   }
   return d[n];
 }
-const ALIASES = { "chouriço": ["chorizo"], "parm": ["parmesan"], "mish mish": ["mishmish"] };
-const near = (a, b) => a.length > 0 && lev(a, b) <= Math.max(1, Math.floor(b.length * 0.2));
-const close = (typed, part) => [part, ...(ALIASES[part] || [])].some((p) => near(norm(typed), norm(p)));
+const ALIASES = { "chouriço": ["chorizo"], "Thai tomato salsa": ["nam prik", "nam phrik"], "parm": ["parmesan"], "parmesan": ["parm"], "mish mish": ["mishmish"] };
+const sameWord = (a, b) => a === b || a + "s" === b || a + "es" === b || b + "s" === a || b + "es" === a; // plural ok
+const nearWord = (a, b) => sameWord(a, b) || lev(a, b) <= Math.floor(b.length * 0.3); // ~1 typo per 3–4 letters
+
+// Match a typed answer to a component, in any word order. Returns the typed words that are
+// misspelled (empty when spelled right), or null when it doesn't match.
+function matchPart(typed, part) {
+  const tw = words(typed);
+  if (!tw.length) return null;
+  const tryForm = (pw) => {
+    if (tw.length === pw.length) {
+      const left = pw.slice(), pending = [];
+      for (const w of tw) { const i = left.findIndex((x) => sameWord(w, x)); if (i >= 0) left.splice(i, 1); else pending.push(w); }
+      const typos = pending.filter((w) => { const i = left.findIndex((x) => nearWord(w, x)); if (i >= 0) left.splice(i, 1); return i >= 0; });
+      if (typos.length === pending.length) return typos;
+    }
+    // Missing or extra spaces ("sweetpotato"): compare without spaces; spacing alone isn't a typo.
+    const a = tw.join(""), b = pw.join("");
+    if (a === b) return [];
+    if (lev(a, b) <= Math.max(1, Math.floor(b.length * 0.2))) return tw.filter((w) => !pw.some((x) => sameWord(w, x)));
+    return null;
+  };
+  // Use whichever accepted form ("chouriço" or "chorizo") is closest to what was typed.
+  const found = [part, ...(ALIASES[part] || [])].map((p) => tryForm(words(p))).filter(Boolean);
+  return found.length ? found.reduce((a, b) => (b.length < a.length ? b : a)) : null;
+}
+const close = (typed, part) => matchPart(typed, part) !== null;
 
 // A component that starts with a farm name also matches without it, for half credit.
-const FARMS = ["Schartner Farms", "Hopkins Southdowns", "Wild Harmony Farm", "Four Town Farm"];
+const FARMS = ["Schartner Farms", "Hopkins Southdowns", "Wild Harmony Farm", "Four Town Farm", "Narragansett Creamery"];
 const withoutFarm = (part) => { const f = FARMS.find((x) => part.startsWith(x + " ")); return f ? part.slice(f.length + 1) : null; };
 
 // Grade typed slots against parts in any order. Each slot is "full", "half" (farm name left out) or false.
 // Full matches are taken first so a farm-less answer cannot claim a part another slot names in full.
 function gradeSlots(typed, parts) {
-  const left = parts.slice(), ok = typed.map(() => false), farmNotes = [];
-  typed.forEach((t, j) => { const i = left.findIndex((p) => close(t, p)); if (i >= 0) { ok[j] = "full"; left.splice(i, 1); } });
-  typed.forEach((t, j) => {
-    if (ok[j]) return;
-    const i = left.findIndex((p) => withoutFarm(p) && close(t, withoutFarm(p)));
-    if (i >= 0) { ok[j] = "half"; farmNotes.push(left[i]); left.splice(i, 1); }
-  });
-  return { ok, missing: left, farmNotes };
+  const left = parts.slice(), ok = typed.map(() => false), typos = typed.map(() => []), farmNotes = [];
+  const take = (j, grade, part) => {
+    const i = left.findIndex((p) => (part(p) ? matchPart(typed[j], part(p)) : null) !== null);
+    if (i < 0) return;
+    ok[j] = grade; typos[j] = matchPart(typed[j], part(left[i]));
+    if (grade === "half") farmNotes.push(left[i]);
+    left.splice(i, 1);
+  };
+  typed.forEach((_, j) => take(j, "full", (p) => p));
+  typed.forEach((_, j) => { if (!ok[j]) take(j, "half", withoutFarm); });
+  return { ok, missing: left, farmNotes, typos };
 }
 
 // Previews and sandboxed viewers can block localStorage; progress then lasts for the session only.
@@ -205,7 +234,12 @@ function buildQuestions(levelId, pool) {
     if (levelId === "medium") {
       const idx = Math.floor(Math.random() * d.parts.length);
       const answer = d.parts[idx];
-      const others = pick([...new Set(DISHES.filter((x) => x !== d).flatMap((x) => x.parts))].filter((p) => !d.parts.some((x) => norm(x) === norm(p))), 3);
+      // Wrong choices must not be near-duplicates (e.g. singular/plural) of this dish's parts or of each other.
+      const others = [];
+      for (const p of shuffle(DISHES.filter((x) => x !== d).flatMap((x) => x.parts))) {
+        if (others.length === 3) break;
+        if (![...d.parts, ...others].some((x) => close(p, x) || close(x, p))) others.push(p);
+      }
       return { d, kind: "mc", idx, options: shuffle([answer, ...others]), answer };
     }
     return { d, kind: "type" };
@@ -295,8 +329,16 @@ function answerMc(btn) {
 function answerTyped(form) {
   if (run.answered) return;
   const q = run.qs[run.i], inputs = [...form.querySelectorAll(".slot")];
-  const { ok, missing, farmNotes } = gradeSlots(inputs.map((x) => x.value), q.d.parts);
-  inputs.forEach((x, j) => { x.readOnly = true; x.classList.add(ok[j] === "full" ? "ok" : ok[j] === "half" ? "half" : "bad"); });
+  const { ok, missing, farmNotes, typos } = gradeSlots(inputs.map((x) => x.value), q.d.parts);
+  // Replace each box with its graded text; misspelled words get a red squiggle.
+  inputs.forEach((x, j) => {
+    const shown = document.createElement("div");
+    shown.className = `slot ${ok[j] === "full" ? "ok" : ok[j] === "half" ? "half" : "bad"}`;
+    shown.innerHTML = x.value.trim() ? x.value.trim().split(/(\s+)/).map((t) =>
+      words(t).some((w) => typos[j].includes(w)) ? `<span class="typo" title="Misspelled">${esc(t)}</span>` : esc(t)).join("")
+      : `<span class="muted">—</span>`;
+    x.replaceWith(shown);
+  });
   form.querySelector(".actions").remove();
   const score = missing.length ? 0 : farmNotes.length ? 0.5 : 1;
   const notes = [missing.length ? `Missed: ${missing.join(", ")}` : "", farmNotes.length ? `Add the farm: ${farmNotes.join(", ")}` : ""];
