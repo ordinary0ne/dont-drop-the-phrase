@@ -10,7 +10,7 @@
   :root {
     --bg: #111416; --card: #1b2025; --card2: #232a31; --line: #2f373f;
     --text: #f0f1f3; --muted: #afb5bd; --accent: #e7a3b0; --focus: #f5ce83;
-    --ok: #7fd4a0; --okbg: #17352a; --bad: #f19a9a; --badbg: #3d1f22;
+    --ok: #7fd4a0; --okbg: #17352a; --half: #f0c674; --halfbg: #3a3120; --bad: #f19a9a; --badbg: #3d1f22;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; background: var(--bg); color: var(--text); }
@@ -56,9 +56,10 @@
   .slot::placeholder { color: #868d96; }
   .slot.ok { background: var(--okbg); border-color: var(--ok); }
   .slot.bad { background: var(--badbg); border-color: var(--bad); }
+  .slot.half { background: var(--halfbg); border-color: var(--half); }
   .feedback { margin: 14px 0; padding: 12px 14px; border-radius: 10px; background: var(--card2); }
   .feedback .v { font-weight: 700; margin-bottom: 4px; }
-  .feedback .v.ok { color: var(--ok); } .feedback .v.bad { color: var(--bad); }
+  .feedback .v.ok { color: var(--ok); } .feedback .v.bad { color: var(--bad); } .feedback .v.half { color: var(--half); }
   .feedback .ans { color: var(--muted); }
   .feedback .ans + .ans { margin-top: 6px; }
   .actions { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
@@ -172,11 +173,21 @@ const ALIASES = { "chouriço": ["chorizo"], "parm": ["parmesan"], "mish mish": [
 const near = (a, b) => a.length > 0 && lev(a, b) <= Math.max(1, Math.floor(b.length * 0.2));
 const close = (typed, part) => [part, ...(ALIASES[part] || [])].some((p) => near(norm(typed), norm(p)));
 
-// Grade typed slots against parts in any order; returns per-slot match and the parts not matched.
+// A component that starts with a farm name also matches without it, for half credit.
+const FARMS = ["Schartner Farms", "Hopkins Southdowns", "Wild Harmony Farm", "Four Town Farm"];
+const withoutFarm = (part) => { const f = FARMS.find((x) => part.startsWith(x + " ")); return f ? part.slice(f.length + 1) : null; };
+
+// Grade typed slots against parts in any order. Each slot is "full", "half" (farm name left out) or false.
+// Full matches are taken first so a farm-less answer cannot claim a part another slot names in full.
 function gradeSlots(typed, parts) {
-  const left = parts.slice();
-  const ok = typed.map((t) => { const i = left.findIndex((p) => close(t, p)); if (i < 0) return false; left.splice(i, 1); return true; });
-  return { ok, missing: left };
+  const left = parts.slice(), ok = typed.map(() => false), farmNotes = [];
+  typed.forEach((t, j) => { const i = left.findIndex((p) => close(t, p)); if (i >= 0) { ok[j] = "full"; left.splice(i, 1); } });
+  typed.forEach((t, j) => {
+    if (ok[j]) return;
+    const i = left.findIndex((p) => withoutFarm(p) && close(t, withoutFarm(p)));
+    if (i >= 0) { ok[j] = "half"; farmNotes.push(left[i]); left.splice(i, 1); }
+  });
+  return { ok, missing: left, farmNotes };
 }
 
 // Previews and sandboxed viewers can block localStorage; progress then lasts for the session only.
@@ -278,26 +289,31 @@ function answerMc(btn) {
     b.disabled = true;
     if (b.dataset.o === q.answer) b.classList.add("ok"); else if (b === btn) b.classList.add("bad");
   });
-  feedback(ok);
+  feedback(ok ? 1 : 0);
 }
 
 function answerTyped(form) {
   if (run.answered) return;
   const q = run.qs[run.i], inputs = [...form.querySelectorAll(".slot")];
-  const { ok, missing } = gradeSlots(inputs.map((x) => x.value), q.d.parts);
-  inputs.forEach((x, j) => { x.readOnly = true; x.classList.add(ok[j] ? "ok" : "bad"); });
+  const { ok, missing, farmNotes } = gradeSlots(inputs.map((x) => x.value), q.d.parts);
+  inputs.forEach((x, j) => { x.readOnly = true; x.classList.add(ok[j] === "full" ? "ok" : ok[j] === "half" ? "half" : "bad"); });
   form.querySelector(".actions").remove();
-  feedback(ok.every(Boolean), missing.length && !ok.every(Boolean) ? `Missed: ${missing.join(", ")}` : "");
+  const score = missing.length ? 0 : farmNotes.length ? 0.5 : 1;
+  const notes = [missing.length ? `Missed: ${missing.join(", ")}` : "", farmNotes.length ? `Add the farm: ${farmNotes.join(", ")}` : ""];
+  feedback(score, notes.filter(Boolean).join("\n"));
 }
 
-function feedback(ok, extra = "") {
+// score: 1 correct, 0.5 half correct (farm name left out), 0 incorrect.
+function feedback(score, extra = "") {
   run.answered = true;
   const q = run.qs[run.i];
-  if (ok) run.right++; else run.missed.push(q.fact || q.d);
+  run.right += score;
+  if (score < 1) run.missed.push(q.fact || q.d);
+  const [cls, verdict] = score === 1 ? ["ok", "Correct"] : score ? ["half", "Half correct"] : ["bad", "Incorrect"];
   const last = run.i === run.qs.length - 1;
   document.getElementById("after").innerHTML = `<div class="feedback">
-      <div class="v ${ok ? "ok" : "bad"}">${ok ? "Correct" : "Incorrect"}</div>
-      ${extra ? `<div class="ans">${esc(extra)}</div>` : ""}
+      <div class="v ${cls}">${verdict}</div>
+      ${extra.split("\n").filter(Boolean).map((t) => `<div class="ans">${esc(t)}</div>`).join("")}
       <div class="ans">${q.fact ? esc(q.fact[4]) : `“${esc(phraseOf(q.d))}”`}</div></div>
     <div class="actions"><button class="btn primary" id="next">${last ? "See results" : "Next"}</button></div>`;
   const next = document.getElementById("next");
@@ -309,13 +325,13 @@ function results() {
   const { levelIdx, level, qs, right, missed, full } = run;
   const pct = right / qs.length;
   if (full) { state[level.id] = Math.max(state[level.id] || 0, pct); save(); }
-  const nextLevel = level.food ? null : LEVELS[levelIdx + 1];
+  const nextLevel = levelIdx < 2 ? LEVELS[levelIdx + 1] : null; // Easy → Medium → Hard
   const canNext = !!nextLevel;
   const note = full ? "" : "Missed-only round.";
   app.innerHTML = `${head(level.name)}
     <div class="q"><div class="label">Score</div><div class="score">${Math.round(pct * 100)}%</div>
       <div class="muted">${right} / ${qs.length}${note ? ` · ${note}` : ""}</div></div>
-    ${missed.length ? `<div class="q"><div class="label">Missed</div><ul class="missed">${missed.map((d) => Array.isArray(d)
+    ${missed.length ? `<div class="q"><div class="label">Review</div><ul class="missed">${missed.map((d) => Array.isArray(d)
       ? `<li><b>${esc(d[0])}</b> · ${esc(d[1])}<br><span class="muted">${esc(d[2])}. ${esc(d[4])}</span></li>`
       : `<li><b>${esc(d.dish)}</b><br><span class="muted">${esc(phraseOf(d))}</span></li>`).join("")}</ul></div>` : ""}
     <div class="actions">
